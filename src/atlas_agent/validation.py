@@ -6,7 +6,7 @@ from .agent_models import ToolCallDecision
 from .models import AgentResponse, LabRequest, TraceEvent
 from .policy_context import ReservationContext, build_reservation_context
 
-
+#Failed 7 Tests, 3 Passed
 def validate_request_binding(
     decision: ToolCallDecision,
     *,
