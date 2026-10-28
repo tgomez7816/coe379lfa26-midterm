@@ -45,10 +45,9 @@ def run_agent(
         try:
             # TODO 2.1: Ask llm for one decision validated by DecisionAdapter.
             #Call LLM with messages
-            initial_decision = llm.generate(messages=messages, response_model=DecisionAdapter) #attempt 2
+            decision = llm.generate(messages=messages, response_model=DecisionAdapter) #attempt 2
             #go through and validate the decision with DecisionAdapter
             #make sure except block will handle failed validation
-            raise NotImplementedError
         except (ValidationError, ValueError, TypeError, RuntimeError) as exc:
             return _failed(
                 f"The model did not produce a valid decision: {exc}",
@@ -63,7 +62,7 @@ def run_agent(
             #does not call a tool or continue loop
             #act as early exit for clarification requests
             return AgentRun(
-                response = AgentResponse(status="clarification_required", message=decision.question, missing_fields=decision.missing_fields,),
+                response = AgentResponse(status="clarification_required", message=decision.question),
                 trace = trace,
                 termination_reason = "clarification_required",)
 
@@ -71,7 +70,7 @@ def run_agent(
             # TODO 2.3: Validate the final response. Return a failed run if it is
             # inconsistent; otherwise return the model's final response.
             #check decision's response (validate_final_response)
-            errors = validate_final_response(decision.response, request)
+            errors = validate_final_response(decision.response, trace)
             #if failed, return a failed AgentRun with "invalid_final_response" reason
             if errors:
                 return _failed(f"Final response is invalid: {errors}", trace, "invalid_final_response")
@@ -86,13 +85,13 @@ def run_agent(
         # TODO 2.4: Call validate_proposed_tool_call. If it returns errors,
         # create an action_gate_denied observation. Otherwise dispatch the tool.
         #validate_proposed_tool_call checks if call is allowed
-        gate_errors = validate_proposed_tool_call(decision, request)
+        gate_errors = validate_proposed_tool_call(decision, request=request, trace=trace)
         #if errors, create an action_gate_denied observation and don't call the tool
         if gate_errors:
-            observation = ToolObservation(tool=decision.tool, status="action_gate_denied", error="; ".join(gate_errors))
+            observation = ToolObservation(ok=False , tool=decision.tool, error_code="action_gate_denied", message="; ".join(gate_errors))
         #if valid, dispatch the tool (environment.dispatch_tool) with tool name and arguments from decision and get the ToolObservation
         else:
-            observation = environment.dispatch_tool(decision.tool, decision.arguments)
+            observation = environment.dispatch(decision.tool, decision.arguments)
 
         # TODO 2.5: Create and append a TraceEvent. Set mutating by consulting
         # MUTATING_TOOLS rather than hard-coding one tool name.
@@ -100,7 +99,7 @@ def run_agent(
         #add TraceEvent to trace list
         trace.append(
             #needs ToolCallDecision, ToolObservation, current step number and MUTATING_TOOLS
-            TraceEvent(step=step, decision=decision, observation=observation, mutating=decision.tool in MUTATING_TOOLS))
+            TraceEvent(step=step, decision=decision.model_dump(), observation=observation, mutating=decision.tool in MUTATING_TOOLS))
 
         # TODO 2.6: Append the serialized decision as an assistant message and
         # the serialized observation as a tool message.
