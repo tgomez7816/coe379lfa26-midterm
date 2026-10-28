@@ -5,7 +5,7 @@ from __future__ import annotations
 from .agent_models import ToolCallDecision
 from .models import AgentResponse, LabRequest, TraceEvent
 from .policy_context import ReservationContext, build_reservation_context
-
+#Failed 3 Tests, Passed 7
 def validate_request_binding(
     decision: ToolCallDecision,
     *,
