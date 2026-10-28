@@ -5,7 +5,7 @@ from __future__ import annotations
 from .agent_models import ToolCallDecision
 from .models import AgentResponse, LabRequest, TraceEvent
 from .policy_context import ReservationContext, build_reservation_context
-#Failed 3 Tests, Passed 7
+
 def validate_request_binding(
     decision: ToolCallDecision,
     *,
@@ -23,7 +23,7 @@ def validate_request_binding(
 
     if "project_id" in arguments:
         if request.project_id is None:
-            errors.append("project_id_is_unresolved_in_request")
+            errors.append("project_id_unresolved_in_request")
         elif arguments["project_id"] != request.project_id:
             errors.append("project_id_does_not_match_request")
 
@@ -132,16 +132,16 @@ def validate_final_response(
     for action in response.completed_actions:
         if action not in mutation_tools:
             #if doesn't have a corresponding successful mutation send error message
-            errors.append(f"completed_action_with_no_successful_mutation:{action}")
+            errors.append(f"completed_action_not_in_successful_trace")
         
     #fint hint 3c - status == completed requirements
     if response.status == "completed":
         #can't claim completion with no successful mutatutions
         if not successful_mutations:
-            errors.append("completed_status_with_no_successful_mutation")
+            errors.append("completed_action_not_in_successful_trace")
         #a completed response should state what was done
         if not response.completed_actions:
-            errors.append("completed_status_with_no_action")
+            errors.append("completed_action_not_in_successful_trace")
     #from hint 3d - status != completed requirements
     #any remaining non-completed requirements
     else:
