@@ -3,7 +3,7 @@
 # Ruff suppressions cover names intentionally reserved for the TODOs. Remove
 # this line after completing Milestone 2.
 # ruff: noqa: F401, F821, F841
-#failed all 3 tests 
+
 from __future__ import annotations
 
 import json
@@ -47,8 +47,6 @@ def run_agent(
             #Call LLM with messages
             initial_decision = llm.generate(messages=messages, response_model=DecisionAdapter) #attempt 2
             #go through and validate the decision with DecisionAdapter
-            #give results to decision variable
-            decision = DecisionAdapter.validate_python(initial_decision)
             #make sure except block will handle failed validation
             raise NotImplementedError
         except (ValidationError, ValueError, TypeError, RuntimeError) as exc:
@@ -97,7 +95,6 @@ def run_agent(
         #if valid, dispatch the tool (environment.dispatch_tool) with tool name and arguments from decision and get the ToolObservation
         else:
             observation = environment.dispatch_tool(decision.tool, decision.arguments)
-        raise NotImplementedError
 
         # TODO 2.5: Create and append a TraceEvent. Set mutating by consulting
         # MUTATING_TOOLS rather than hard-coding one tool name.
@@ -106,7 +103,6 @@ def run_agent(
         trace.append(
             #needs ToolCallDecision, ToolObservation, current step number and MUTATING_TOOLS
             TraceEvent(step=step, decision=decision, observation=observation, mutating=decision.tool in MUTATING_TOOLS))
-        raise NotImplementedError
 
         # TODO 2.6: Append the serialized decision as an assistant message and
         # the serialized observation as a tool message.
@@ -117,8 +113,7 @@ def run_agent(
         messages.append(
             #serialize ToolObservation as tool message
             {role: "tool", content: json.dumps(observation.model_dump())})
-        raise NotImplementedError
-
+        
     # TODO 2.7: Return an explicit maximum_steps_exceeded failure.
     #completed loop without returning a final response or clarification request
     #make AgentRun with status failed
@@ -126,4 +121,4 @@ def run_agent(
     #should have full trace
     #reason "maximum_steps_exceeded"
     return _failed("Maximum steps exceeded without a final response.", trace, "maximum_steps_exceeded")
-    raise NotImplementedError
+    
