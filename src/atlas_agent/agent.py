@@ -66,7 +66,6 @@ def run_agent(
                 response = AgentResponse(status="clarification_required", message=decision.question, missing_fields=decision.missing_fields,),
                 trace = trace,
                 termination_reason = "clarification_required",)
-            raise NotImplementedError
 
         if isinstance(decision, FinalDecision):
             # TODO 2.3: Validate the final response. Return a failed run if it is
@@ -78,7 +77,6 @@ def run_agent(
                 return _failed(f"Final response is invalid: {errors}", trace, "invalid_final_response")
             #if valid, return an AgentRun with final response, trace and "final_response" reason
             return AgentRun(response=decision.response, trace=trace, termination_reason="final_response")
-            raise NotImplementedError
 
         if not isinstance(decision, ToolCallDecision):
             return _failed(
@@ -109,10 +107,10 @@ def run_agent(
         #add both to messages list -> let's next LLM call to see result
         messages.append(
             #serialize ToolCallDecision as assistant message
-            {role: "assistant", content: json.dumps(decision.model_dump())})
+            {"role": "assistant", "content": json.dumps(decision.model_dump())})
         messages.append(
             #serialize ToolObservation as tool message
-            {role: "tool", content: json.dumps(observation.model_dump())})
+            {"role": "tool", "content": json.dumps(observation.model_dump())})
         
     # TODO 2.7: Return an explicit maximum_steps_exceeded failure.
     #completed loop without returning a final response or clarification request
