@@ -6,7 +6,6 @@ from .agent_models import ToolCallDecision
 from .models import AgentResponse, LabRequest, TraceEvent
 from .policy_context import ReservationContext, build_reservation_context
 
-#Failed 7 Tests, 3 Passed
 def validate_request_binding(
     decision: ToolCallDecision,
     *,
@@ -17,14 +16,22 @@ def validate_request_binding(
     errors: list[str] = []
     #need to check fields that overlap between tool call and the trusted request
     #get values from decision.arguments and request.model_dump()
-    requested_user = decision.arguments.get("user_id")
-    requested_source = decision.arguments.get("resource_id")
+    arguments = decision.arguments
     #if any values are different, return an error message for each field
-    if requested_user is not None and requested_user != request.authenticated_user_id:
-        errors.append(f"Argument 'user_id' does not match.")
+    if "user_id" in arguments and arguments["user_id"] != request.authenticated_user_id:
+        errors.append("user_id_must_match_authenticated_user")
 
-    if requested_source is not None and requested_source != request.resource_id:
-        errors.append(f"Argument 'resource_id' does not match.")
+    if "project_id" in arguments:
+        if request.project_id is None:
+            errors.append("project_id_is_unresolved_in_request")
+        elif arguments["project_id"] != request.project_id:
+            errors.append("project_id_does_not_match_request")
+
+    if "resource_id" in arguments:
+        if request.resource_id is None:
+            errors.append("resource_id_unresolved_in_request")
+        elif arguments["resource_id"] != request.resource_id:
+            errors.append("resource_id_does_not_match_request")
     #empty list == valid
     return errors
 
@@ -39,34 +46,34 @@ def validate_reservation_preconditions(context: ReservationContext) -> list[str]
     errors: list[str] = []
 
     if not context.arguments_complete:
-        errors.append("Required arguments are missing or incomplete.")
+        errors.append("arguments_incomplete")
 
     if not context.policy_retrieved:
-        errors.append("No policy document retrieved.")
+        errors.append("policy_not_retrieved")
 
     if not context.authorizations_checked:
-        errors.append("User authorizations were not checked.")
+        errors.append("authorizations_not_checked")
 
     if not context.resource_status_checked: 
-        errors.append("Resource status was not checked for window and resource.")
+        errors.append("resource_status_not_checked")
 
     if not context.project_authorized:
-        errors.append("Project is unauthorized.")
+        errors.append("project_not_authorized")
 
     if not context.qualification_current:
-        errors.append("Requestor lacks required qualification.")
+        errors.append("required_qualification_missing")
 
     if not context.resource_available:
-        errors.append("Resource is currently unavailable for window.")
+        errors.append("resource_not_availible")
 
     if not context.calibration_current:
-        errors.append("Calibration is not current.")
+        errors.append("calibration_not_current")
 
     if not context.maintenance_clear:
-        errors.append("Resource is currently under maintenance.")
+        errors.append("maintenance_scheduled")
 
     if not context.after_hours_approval_satisfied:
-        errors.append("Request for after hours time window is not valid.")
+        errors.append("after_hours_approval_missing")
 
     return errors
 
@@ -117,7 +124,7 @@ def validate_final_response(
     for citation in response.citations:
         if citation not in retrieved:
             #for each in response.citations, not retrieved needs error message
-            errors.append(f"Citation '{citation}' was not retrieved during this run.")
+            errors.append(f"citations_not_retrieved:{citation}")
 
     #from hint 3b - complete actions must match real sucessful mutations
     #each entry in response.completed.actions
@@ -125,28 +132,27 @@ def validate_final_response(
     for action in response.completed_actions:
         if action not in mutation_tools:
             #if doesn't have a corresponding successful mutation send error message
-            errors.append(f"Claimed action '{action}' does not have a matching successful mutation.")
+            errors.append(f"completed_action_with_no_successful_mutation:{action}")
         
     #fint hint 3c - status == completed requirements
     if response.status == "completed":
         #can't claim completion with no successful mutatutions
         if not successful_mutations:
-            errors.append("Status 'completed' but there is no successful mutation.")
+            errors.append("completed_status_with_no_successful_mutation")
         #a completed response should state what was done
         if not response.completed_actions:
-            errors.append("Status is 'completed' but there are no claimed actions.")
+            errors.append("completed_status_with_no_action")
     #from hint 3d - status != completed requirements
     #any remaining non-completed requirements
     else:
         #response.completed_actions is empty, or send error
         #a noncompleted response can't claim to be finished work
         if response.completed_actions:
-            errors.append("Completed actions must be empty, unless there is 'completed' status.")
+            errors.append("completed_action_not_in_successful_trace")
         #trace can't have unreported sucessful mutations
         # #if successful_muations is not empty, send an error because work succeeded and response failed to report it
         if successful_mutations:
-            errors.append("Trace contains unreported successful mutation(s).")
-
+            errors.append("completed_action_not_in_successful_trace")
     #needs to return full errors list w/empty list == valid response
     #includes everything from all 4 checks 
     return errors
