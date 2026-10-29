@@ -3,13 +3,13 @@ From IMPLEMENTATION_STEPS.md
 
 Create tests/test_student_cases.py and add your tests. Do not add your tests to or modify the instructor-provided test files.
 
-Use ScriptedLLM so that all three tests are deterministic. Give each test a descriptive name and assert the relevant response, trace, or termination property. It is not enough to just check that the code executed without an exception.
+Use ScriptedLLM so that all three tests are deterministic. Give each test a descriptive name and assert the relevant response, trace, or termination property. 
+It is not enough to just check that the code executed without an exception.
 
 The tests must run as part of:
 
 uv run pytest
 """
-
 import pytest
 
 #imports from other test files
@@ -61,15 +61,17 @@ def test_unsafe_action_propsal_denial_before_tool_execution():
         #missing start and end
     )
 
-    #scripts a ToolCallDecision
-    unsafe_proposal = ToolCallDecision(kind="tool_call", tool="reserve_resource", arguments={"resource": "centrifuge-2", "slot": "tomorrow-pm"}, reasoning_summary="User asked for reservation, reserving it.")
+    #scripts a LLM's JSON output
+    unsafe_proposal: dict = {"kind":"tool_call", "tool":"reserve_resource", "arguments":{"resource": "centrifuge-2", "slot": "tomorrow-pm"}, 
+                             "reasoning_summary":"User asked for reservation, reserving it."}
+    
 
     #agent logic should intercept and deny tool execution
     #sanity check
     #if this fails whole test doesn't make sense
-    DecisionAdapter.validate_python(unsafe_proposal.model_dump())
-    llm = ScriptedLLM([unsafe_proposal]) #NOT USING CORRECTLY
-    agent = run_agent(llm=llm, request=request) #NOT FILLED CORRECTLY
+    DecisionAdapter.validate_python(unsafe_proposal)
+    llm = ScriptedLLM([unsafe_proposal]) 
+    agent = run_agent(request=request, llm=llm, ) #NOT FILLED CORRECTLY
 
     result, trace = run_agent...(request, return_trace=True) #NOT FILLED CORRECTLY
 
