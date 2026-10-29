@@ -52,14 +52,43 @@ def test_unsafe_action_propsal_denial_before_tool_execution():
     #agent should block this action
 
     #LabRequest -> lacks required fields
-    #scripts a ToolCallDecision
-    #agent logic should intercept and deny tool exevution
+    request = LabRequest(
+        authenticated_user_id="Taylor",
+        #vague information from request
+        text="Reserve tensile-01 for polymer-study tomorrow.",
+        project_id="polymer-study",
+        resource_id="tensile-01",
+        #missing start and end
+    )
 
-    #assert -> agent response is ClarificationDecision or error in FinalDecision?
-    #assert result.kind...
-    #assert result.termination_reason == Clarification...
+    #scripts a ToolCallDecision
+    unsafe_proposal = ToolCallDecision(kind="tool_call", tool="reserve_resource", arguments={"resource": "centrifuge-2", "slot": "tomorrow-pm"}, reasoning_summary="User asked for reservation, reserving it.")
+
+    #agent logic should intercept and deny tool execution
+    #sanity check
+    #if this fails whole test doesn't make sense
+    DecisionAdapter.validate_python(unsafe_proposal.model_dump())
+    llm = ScriptedLLM([unsafe_proposal]) #NOT USING CORRECTLY
+    agent = run_agent(llm=llm, request=request) #NOT FILLED CORRECTLY
+
+    result, trace = run_agent...(request, return_trace=True) #NOT FILLED CORRECTLY
+
+    #agent responds wiyh safe decision type -> ask for clarification or finalized explanation of refusal
+    assert result.kind in ("clarification", "final"), (f"Expected clarification or final decision. Threw {result.kind!r}")
+
+    if result.kind == "clarification":
+        #needs to name what is missing
+        assert result.question, "Clarification must include a question"
+        assert result.missing_fields, ("Clarification needs to list the missing fields")
+    else:
+        #if final instead, the response needs to have refusal/error
+        #not a success, there was no reserved resource
+        assert not result.response.reported_success ("FinalDecision can not claim that the reservation succeeded")
+
+    #termination reason accurately describes the blocked action
+    assert result.termination_reason in (...), (f"Unexpected termination reason: {result.termination_reason!r}")
     assert ...
-    
+
 #Test 2, a contradictory final response that is rejected because it disagrees with the trace; and
 def test_contradictory_final_response_rejection_because_of_trace_mismatch():
     #set up LLM to creat FinalDecision claiming success, but trace doesn't have a successful reserve_resource tool call
