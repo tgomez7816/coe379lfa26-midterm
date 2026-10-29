@@ -32,6 +32,19 @@ def validate_request_binding(
             errors.append("resource_id_unresolved_in_request")
         elif arguments["resource_id"] != request.resource_id:
             errors.append("resource_id_does_not_match_request")
+
+    if "start" in arguments:
+        if request.start is None:
+            errors.append("start_unresolved_in_request")
+        elif arguments["start"] != request.start:
+            errors.append("start_does_not_match_request")
+
+    if "end" in arguments:
+        if request.end is None:
+            errors.append("end_unresolved_in_request")
+        elif arguments["end"] != request.end:
+            errors.append("end_does_not_match_request")
+
     #empty list == valid
     return errors
 
@@ -138,7 +151,7 @@ def validate_final_response(
     if response.status == "completed":
         #can't claim completion with no successful mutatutions
         if not successful_mutations:
-            errors.append("completed_action_not_in_successful_trace")
+            errors.append("completed_without_successful_mutation")
         #a completed response should state what was done
         if not response.completed_actions:
             errors.append("completed_action_not_in_successful_trace")
@@ -148,11 +161,11 @@ def validate_final_response(
         #response.completed_actions is empty, or send error
         #a noncompleted response can't claim to be finished work
         if response.completed_actions:
-            errors.append("completed_action_not_in_successful_trace")
+            errors.append("not_completed_action_in_successful_trace")
         #trace can't have unreported sucessful mutations
         # #if successful_muations is not empty, send an error because work succeeded and response failed to report it
         if successful_mutations:
-            errors.append("completed_action_not_in_successful_trace")
+            errors.append("not_completed_with_successful_mutation")
     #needs to return full errors list w/empty list == valid response
     #includes everything from all 4 checks 
     return errors
