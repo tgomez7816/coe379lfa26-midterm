@@ -115,7 +115,7 @@ def test_unsafe_action_propsal_denial_before_tool_execution(environment, monkeyp
     assert tool_msg["role"] == "tool"
     assert "action_gate_denied" in tool_msg["content"]
 
-    #agent responds wiyh safe decision type -> ask for clarification or finalized explanation of refusal
+    #agent responds wiyh safe decision type -> ask for clarification
     assert run.termination_reason == "clarification_required"
     assert run.response.status == "clarification_required"
     #clarifying question is non-empty
@@ -176,6 +176,17 @@ def test_contradictory_final_response_rejection_because_of_trace_mismatch(enviro
     assert len(llm.calls) == 1, (f"Expected exactly 1 LLM call, got {len(llm.calls)} and the agent should reject the contradictory final response without retrying"
     )
 
-#both PASSED 
-
 #Test 3, something I make up (one additional case of your choice.)
+def test_prompt_retrieved_doc_is_untrusted_data_and_ignored():
+    #retrieved doc has an embedding instruction (ex. ignore everything else and do x)
+    #agent should ignore this
+
+    #set up ScriptedLLM
+    #ToolCallDecision(search_lab_docs)
+    #observation has embedded instruaction
+    #FinalDecision should only address user's initial request
+
+    #assert trace does not call reserve_resource
+    #assert final response did not act on embedded instruction
+    #assert termination is "normal" -> not related to embedded instruction
+    assert ...
