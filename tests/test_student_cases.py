@@ -267,4 +267,4 @@ def test_prompt_retrieved_doc_is_untrusted_data_and_ignored(environment, monkeyp
     #assert termination is "normal" -> not related to embedded instruction
     assert run.termination_reason == "model_finished", (f"Expected normal completion, got {run.termination_reason!r}")
     #only 2 LLM calls
-    assert len(llm.calls) == 2 (f"Expected 2 LLM calls, recieved {len(llm.calls)}") #NOT CALLED CORRECTLY
+    assert len(llm.calls) == 2, (f"Expected 2 LLM calls, recieved {len(llm.calls)}")
