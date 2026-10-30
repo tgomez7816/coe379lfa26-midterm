@@ -40,25 +40,19 @@ from atlas_agent.validation import (
     validate_request_binding,
     validate_reservation_preconditions,
 )
+from atlas_agent.tools import ToolEnvironment
 
 #make sure tests are repeatable using ScriptedLLM
 #each test needs to wire ScriptedLLM into agent look
 #make assertions on kind, content of final decision, trace, and termination properties
 
 #Test 1, an unsafe action proposal that is denied before tool execution;
-#set up LLM to propose ToolCallDecision for reserve resource
-class _failedenvironment:
-    #model after real dispatch function
-    def dispatch(self, tool:str, arguments: dict):
-        #agent should block this action
-        raise AssertionError ("FAIL: Tool {tool!r} was dispatched with {arguments!r} and unsafe reserve_resource was executed")
-
-def test_unsafe_action_propsal_denial_before_tool_execution():
-    
-    #doesn't have required preconditions (maybe missing authorization/status)
+def test_unsafe_action_propsal_denial_before_tool_execution(environment, monkeypatch):
+    #set up LLM to propose ToolCallDecision for reserve resource
+    #doesn't have required preconditions
     #LabRequest -> lacks required fields
     request = LabRequest(
-        authenticated_user_id="Taylor",
+        authenticated_user_id="taylor",
         #vague information from request
         text="Reserve tensile-01 for polymer-study tomorrow.",
         project_id="polymer-study",
@@ -67,36 +61,65 @@ def test_unsafe_action_propsal_denial_before_tool_execution():
     )
 
     #scripts a LLM's JSON output
-    unsafe_proposal: dict = {"kind":"tool_call", "tool":"reserve_resource", "arguments":{"resource": "centrifuge-2", "slot": "tomorrow-pm"}, 
+    unsafe_proposal: dict = {"kind":"tool_call", "tool":"reserve_resource", "arguments":{"authenticated_user_id": "taylor", "project_id": "polymer-study",
+                             "resource_id":"tensile-01", "start": "2026-10-15T10:00:00",  "end": "2026-10-15T11:00:00"},
                              "reasoning_summary":"User asked for reservation, reserving it."}
 
-    #agent logic should intercept and deny tool execution
+    #agent logic should intercept and deny tool execution from policy
     #sanity check
     #if this fails whole test doesn't make sense
     DecisionAdapter.validate_python(unsafe_proposal)
 
     #second scripted decision
     #what the agent should follow up with after seeing denial
-    followup_clarification: dict = { "kind":"clarification", "missing_fields": ["start", "end"]}
+    followup_clarification: dict = { "kind":"clarification", "question": ("What is the specific start and end time I should reserve?"), 
+                                    "missing_fields": ["start", "end"]}
     llm = ScriptedLLM([unsafe_proposal, followup_clarification]) 
-    env = _failedenvironment()
-    run = run_agent(request, llm=llm, environment=env) #ENVIRONMENT NOT FILLED CORRECTLY
+
+    #"spy" on simulator's reserve() method
+    reserve_calls: list[dict] = []
+    origin_reserve = environment.simulator.reserve
+
+    def spy_reserve(**kwargs):
+        reserve_calls.append(kwargs)
+        return origin_reserve(**kwargs)
+
+    monkeypatch.setattr(environment.simulator, "reserve", spy_reserve)
+
+    #run the agent
+    run = run_agent(request, llm=llm, environment=environment, max_steps=10)
+
+    #gate should deny the call
+    gated = [
+        e for e in run.trace
+             if e.observation.error_code == "action_gate_denied"]
+
+    assert len(gated) == 1, (f"Expected 1 action_gate_denied event, recieved {len(gated)}. If 0 with failure, block came from argument validation or tool routing.")
+    assert gated[0].decision["tool"] == "reserve_resource"
+    #using MUTATING_TOOLS, not hard-coded
+    assert gated[0].mutating is True
+
+    #make sure no reserve resource observation succeeded
+    executed = [
+        e for e in run.trace
+        if e.decision.get("tool") == "reserve_resource" and e.observation.ok
+    ]
+    assert executed == [], ("Unsafe reserve_resource must never execute successfully")
+
+    #mutating was not invoked
+    assert reserve_calls == [], (f"Fail: simulator.reserve was called {len(reserve_calls)} time(s) "f"with {reserve_calls!r}. The unsafe action executed.")
+
+    #denial is given back to the model
+    assert len(llm.calls) == 2, (f"Expected 2 LLM calls (proposal + post-denial turn), got {len(llm.calls)}")
+    tool_msg = llm.calls[1][-1]
+    assert tool_msg["role"] == "tool"
+    assert "action_gate_denied" in tool_msg["content"]
 
     #agent responds wiyh safe decision type -> ask for clarification or finalized explanation of refusal
-    assert result.kind in ("clarification", "final"), (f"Expected clarification or final decision. Threw {result.kind!r}")
-
-    if result.kind == "clarification":
-        #needs to name what is missing
-        assert result.question, "Clarification must include a question"
-        assert result.missing_fields, ("Clarification needs to list the missing fields")
-    else:
-        #if final instead, the response needs to have refusal/error
-        #not a success, there was no reserved resource
-        assert not result.response.reported_success ("FinalDecision can not claim that the reservation succeeded")
-
-    #termination reason accurately describes the blocked action
-    assert result.termination_reason in (...), (f"Unexpected termination reason: {result.termination_reason!r}")
-    assert ...
+    assert run.termination_reason == "clarification_required"
+    assert run.response.status == "clarification_required"
+    #clarifying question is non-empty
+    assert run.response.message  
 
 #Test 2, a contradictory final response that is rejected because it disagrees with the trace; and
 def test_contradictory_final_response_rejection_because_of_trace_mismatch():
