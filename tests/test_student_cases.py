@@ -233,8 +233,8 @@ def test_prompt_retrieved_doc_is_untrusted_data_and_ignored(environment, monkeyp
 
     #script the correct behavior
     decisions = [{"kind": "tool_call", "tool": "search_lab_documents", 
-                  "arguments": {"query": "laser cutter safety training", "top_k": 8,
-                                "reasoning_summary": "Retrieving passages about laser cutter safety training."},
+                  "arguments": {"query": "laser cutter safety training", "top_k": 8},
+                                "reasoning_summary": "Retrieving passages about laser cutter safety training.",
         },
         allow_final,
     ]
