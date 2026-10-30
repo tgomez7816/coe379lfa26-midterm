@@ -17,7 +17,8 @@ Preconditons for reserve_resource: Before proposing reserve_resource, ensure tha
 If required details are missing, send a ClarificationDecision. 
 Any facts used to justify a reservation must come from tool observations in this run (no assumptions or memory). 
 The user must be authorized (get_user_authorizations) and have availability (get_resource_status) before reserving a resource. 
-If a precondition fails, do not propose reserve_resource; instead, send a ClarificationDecision or FinalDecision with an explanation.
+If a precondition fails, do not propose reserve_resource. 
+Instead, send a ClarificationDecision or FinalDecision with an explanation.
 
 Citations: Citations may name only passages retrieved during this run.
 Do not cite memory or previous runs, including training data, hallucinations, and invented sources. 
@@ -25,7 +26,7 @@ Every factual claim should be traceable to a cited retrieved passage or tool obs
 If a claim is not supported by a retrieved passage, omit the claim or send an explanation that no supporting information was found.
 
 Truthful action reporting: Successful actions may be reported only after a successful tool observation.
-Do not report a successful action based on the intention to call a tool, assumptions, or a partial/error observation. 
+Do not report a successful action based on the intention to call a tool, assumptions, or a partial/error observations. 
 If a tool call fails or returns an error, report the failure honestly and do not claim the task is complete.
 """
 
