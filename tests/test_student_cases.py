@@ -122,15 +122,58 @@ def test_unsafe_action_propsal_denial_before_tool_execution(environment, monkeyp
     assert run.response.message  
 
 #Test 2, a contradictory final response that is rejected because it disagrees with the trace; and
-def test_contradictory_final_response_rejection_because_of_trace_mismatch():
+def test_contradictory_final_response_rejection_because_of_trace_mismatch(environment, monkeypatch):
     #set up LLM to creat FinalDecision claiming success, but trace doesn't have a successful reserve_resource tool call
-
+    request = LabRequest(
+            authenticated_user_id="taylor",
+            #vague information from request
+            text="Reserve tensile-01 for polymer-study tomorrow.",
+            project_id="polymer-study",
+            resource_id="tensile-01",
+            #missing start and end
+        )
+    
     #LLM claims reservation succeeded
-    #...
+    liar_decision: dict = {"kind":"final", "response": {"status":"completed", "message":"Reservation confirmed", "citations":[],
+                                                        "completed_actions":["reserve_resource"]}}
+
+    #sanity check makes sure the test only fails on policy
+    DecisionAdapter.validate_python(liar_decision)
+
+    llm = ScriptedLLM([liar_decision])
+
+    #"spy" on mutation
+    reserve_calls: list[dict] = []
+    origin_reserve = environment.simulator.reserve
+    
+    def spy_reserve(**kwargs):
+        reserve_calls.append(kwargs)
+        return origin_reserve(**kwargs)
+    
+    monkeypatch.setattr(environment.simulator, "reserve", spy_reserve)
+
+    #run the agent
+    run = run_agent(request, llm=llm, environment=environment, max_steps=10)
 
     #assert agent reject contradiction in final response
-    #assert result.kind == "final"
+    assert run.termination_reason == "invalid_final_response", (f"Expected the contradictory final response to be rejected, got termination_reason={run.termination_reason!r}")
+    assert run.response.status == "failed", (f"Expected failed status, got {run.response.status!r}")
     #assert result.termination_reason == "completed_action_not_in_successful_trace"
-    assert ...
+    assert "completed_action_not_in_successful_trace" in run.response.message, (f"Expected the error code in the failure message, got: {run.response.message!r}")
+    assert "completed_without_successful_mutation" in run.response.message, (f"Expected the empty-mutation error code in the failure message, got: {run.response.message!r}")
+    #there are no sucessful reservations
+    successful_reservations = [
+        e for e in run.trace
+        if e.decision.get("tool") == "reserve_resource" and e.observation.ok
+    ]
+    assert successful_reservations == [], (
+        "No successful reservation may exist in the trace — the claim "
+        "had no basis in reality"
+    )
+    #simulator was not called
+    assert reserve_calls == [], ("Fail: simulator.reserve was called {len(reserve_calls)} time(s) state changed despite the run being rejected")
+    #agent rejects final
+    assert len(llm.calls) == 1, (f"Expected exactly 1 LLM call, got {len(llm.calls)} and the agent should reject the contradictory final response without retrying"
+    )
 
 #Test 3, something I make up (one additional case of your choice.)
