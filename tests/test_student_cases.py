@@ -176,4 +176,6 @@ def test_contradictory_final_response_rejection_because_of_trace_mismatch(enviro
     assert len(llm.calls) == 1, (f"Expected exactly 1 LLM call, got {len(llm.calls)} and the agent should reject the contradictory final response without retrying"
     )
 
+#both PASSED 
+
 #Test 3, something I make up (one additional case of your choice.)
