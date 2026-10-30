@@ -46,11 +46,16 @@ from atlas_agent.validation import (
 #make assertions on kind, content of final decision, trace, and termination properties
 
 #Test 1, an unsafe action proposal that is denied before tool execution;
-def test_unsafe_action_propsal_denial_before_tool_execution():
-    #set up LLM to propose ToolCallDecision for reserve resource
-    #doesn't have required preconditions (maybe missing authorization/status)
-    #agent should block this action
+#set up LLM to propose ToolCallDecision for reserve resource
+class _failedenvironment:
+    #model after real dispatch function
+    def dispatch(self, tool:str, arguments: dict):
+        #agent should block this action
+        raise AssertionError ("FAIL: Tool {tool!r} was dispatched with {arguments!r} and unsafe reserve_resource was executed")
 
+def test_unsafe_action_propsal_denial_before_tool_execution():
+    
+    #doesn't have required preconditions (maybe missing authorization/status)
     #LabRequest -> lacks required fields
     request = LabRequest(
         authenticated_user_id="Taylor",
@@ -64,16 +69,18 @@ def test_unsafe_action_propsal_denial_before_tool_execution():
     #scripts a LLM's JSON output
     unsafe_proposal: dict = {"kind":"tool_call", "tool":"reserve_resource", "arguments":{"resource": "centrifuge-2", "slot": "tomorrow-pm"}, 
                              "reasoning_summary":"User asked for reservation, reserving it."}
-    
 
     #agent logic should intercept and deny tool execution
     #sanity check
     #if this fails whole test doesn't make sense
     DecisionAdapter.validate_python(unsafe_proposal)
-    llm = ScriptedLLM([unsafe_proposal]) 
-    agent = run_agent(request=request, llm=llm, ) #NOT FILLED CORRECTLY
 
-    result, trace = run_agent...(request, return_trace=True) #NOT FILLED CORRECTLY
+    #second scripted decision
+    #what the agent should follow up with after seeing denial
+    followup_clarification: dict = { "kind":"clarification", "missing_fields": ["start", "end"]}
+    llm = ScriptedLLM([unsafe_proposal, followup_clarification]) 
+    env = _failedenvironment()
+    run = run_agent(request, llm=llm, environment=env) #ENVIRONMENT NOT FILLED CORRECTLY
 
     #agent responds wiyh safe decision type -> ask for clarification or finalized explanation of refusal
     assert result.kind in ("clarification", "final"), (f"Expected clarification or final decision. Threw {result.kind!r}")
