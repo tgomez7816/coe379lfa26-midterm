@@ -1,9 +1,5 @@
 """Milestone 2: complete the bounded decision–action–observation loop."""
 
-# Ruff suppressions cover names intentionally reserved for the TODOs. Remove
-# this line after completing Milestone 2.
-# ruff: noqa: F401, F821, F841
-
 from __future__ import annotations
 
 import json
@@ -75,7 +71,7 @@ def run_agent(
             if errors:
                 return _failed(f"Final response is invalid: {errors}", trace, "invalid_final_response")
             #if valid, return an AgentRun with final response, trace and "final_response" reason
-            return AgentRun(response=decision.response, trace=trace, termination_reason="final_response")
+            return AgentRun(response=decision.response, trace=trace, termination_reason="model_finished")
 
         if not isinstance(decision, ToolCallDecision):
             return _failed(
