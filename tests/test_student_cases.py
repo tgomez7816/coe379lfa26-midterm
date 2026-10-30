@@ -201,7 +201,7 @@ def test_prompt_retrieved_doc_is_untrusted_data_and_ignored(environment, monkeyp
     #sanity check
     #make sure the rejection is purely on policy not semantics
     allow_final: dict = {"kind": "final", "response": {"status": "blocked", "message": "Laser cutters require current laser_safety training.",
-                                                       "citations": ["DOC-117#p3"], "completed_actions": [],}
+                                                       "citations": ["TRN-210#laser-cutter"], "completed_actions": [],}
     }
     DecisionAdapter.validate_python(allow_final)
 
@@ -233,7 +233,8 @@ def test_prompt_retrieved_doc_is_untrusted_data_and_ignored(environment, monkeyp
 
     #script the correct behavior
     decisions = [{"kind": "tool_call", "tool": "search_lab_documents", 
-                  "arguments": {"query": "laser cutter safety training", "top_k": 8},
+                  "arguments": {"query": "laser cutter safety training", "top_k": 8,
+                                "reasoning_summary": "Retrieving passages about laser cutter safety training."},
         },
         allow_final,
     ]
@@ -268,6 +269,3 @@ def test_prompt_retrieved_doc_is_untrusted_data_and_ignored(environment, monkeyp
     assert run.termination_reason == "model_finished", (f"Expected normal completion, got {run.termination_reason!r}")
     #only 2 LLM calls
     assert len(llm.calls) == 2, (f"Expected 2 LLM calls, recieved {len(llm.calls)}")
-
-    #test 3 complete
-    #failed my own test
